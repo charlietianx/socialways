@@ -1,3 +1,10 @@
+# import wandb
+# from google.colab import drive
+#drive.mount('/content/drive')
+# import sys
+# sys.path.insert(0, '/content/drive/Othercomputers/My MacBook Pro/projs/socialways')
+# %pwd
+
 import os
 import time
 import argparse
@@ -7,6 +14,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 import torch.optim as opt
+
 from tqdm import tqdm, trange
 from itertools import chain
 from torch.autograd import Variable
@@ -14,14 +22,22 @@ from utils.parse_utils import Scale
 from torch.utils.data import DataLoader
 from utils.linear_models import predict_cv
 
+# wandb.init(project='socialways')
+# config = wandb.config
+# config.batch_size = 256
+# config.test_batch_size = 256
+# config.epochs = 10000
+# config.lr = 1E-4
+# config.log_interval = 10
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='Social Ways trajectory prediction.')
+#parser.add_argument('-f', '')
 parser.add_argument('--batch-size', '--b',
                     type=int, default=256, metavar='N',
                     help='input batch size for training (default: 256)')
 parser.add_argument('--epochs', '--e',
-                    type=int, default=1000, metavar='N',
+                    type=int, default=10000, metavar='N',
                     help='number of epochs to train (default: 1000)')
 parser.add_argument('--model', '--m',
                     default='socialWays',
@@ -47,14 +63,20 @@ parser.add_argument('--dataset', '--data',
                     default='hotel',
                     choices=['hotel'],
                     help='pick a specific dataset (default: "hotel")')
-args = parser.parse_args()
+#args = parser.parse_args()
+args, unknown = parser.parse_known_args()
 
 
 # ========== set input/output files ============
 dataset_name = args.dataset
 model_name = args.model
-input_file = '../hotel-8-12.npz'
-model_file = '../trained_models/' + model_name + '-' + dataset_name + '.pt'
+# input_file = '../hotel-8-12.npz'
+# input_file = 'traj-datasets/seq_eth/eth-8-12.npz'
+input_file = 'traj-datasets/data_zara01/zara01-8-12.npz'
+# input_file = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/traj-datasets/data_zara01/zara01-8-12.npz'
+#model_file = '../trained_models/' + model_name + '-' + dataset_name + '.pt'
+# model_file = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/' + model_name + '-' + dataset_name + '.pt'
+model_file = 'models/' + model_name + '-' + dataset_name + '.pt'
 
 # FIXME: ====== training hyper-parameters ======
 # Unrolled GAN
@@ -62,7 +84,7 @@ n_unrolling_steps = args.unrolling_steps
 # Info GAN
 use_info_loss = True
 loss_info_w = 0.5
-n_latent_codes = 2
+n_latent_codes = 3
 # L2 GAN
 use_l2_loss = False
 use_variety_loss = False
@@ -84,7 +106,7 @@ use_social = False
 # ==============================================
 
 # FIXME: ======= Loda Data =====================
-print(os.path.dirname(os.path.realpath(__file__)))
+# print(os.path.dirname(os.path.realpath(__file__)))
 
 data = np.load(input_file)
 # Data come as NxTx2 numpy nd-arrays where N is the number of trajectories,
@@ -363,7 +385,7 @@ class DecoderLstm(nn.Module):
         out, self.lstm_h = self.lstm(inp.unsqueeze(1), self.lstm_h)
         # Applies the fully connected layer to the LSTM output
         out = self.fc(out.squeeze())
-        return out
+        return outtraj-datasets
 
 
 # LSTM-based path encoder
@@ -471,6 +493,8 @@ def train():
             zeros = Variable(torch.zeros(bs, 1) + np.random.uniform(0, 0.1), requires_grad=False).cuda()
             ones = Variable(torch.ones(bs, 1) * np.random.uniform(0.9, 1.0), requires_grad=False).cuda()
             noise = torch.FloatTensor(torch.rand(bs, noise_len)).cuda()
+            # noise = torch.IntTensor(torch.randint(bs, noise_len)).cude()
+            # print("noise=", noise.shape, "\t", noise)
 
             # ============== Train Discriminator ================
             for u in range(n_unrolling_steps + 1):
@@ -535,6 +559,11 @@ def train():
                 variety_loss, _ = torch.min(all_20_losses, dim=0)
                 g_loss += loss_l2_w * variety_loss
 
+            # wandb.log({
+            #     "g_loss":g_loss,
+            #     "info_loss":g_loss_info,
+            #     "d_loss": d_loss
+            # })
             g_loss.backward()
             predictor_optimizer.step()
 
@@ -556,6 +585,13 @@ def train():
     train_ADE /= n_train_samples
     train_FDE /= n_train_samples
     toc = time.clock()
+    # print("codes= ", code_hat)
+    # wandb.log({
+    #     "epoch":epoch,
+    #     "ADE": train_ADE,
+    #     "FDE": train_FDE,
+    #     "time": toc - tic
+    # })
     print(" Epc=%4d, Train ADE,FDE = (%.3f, %.3f) | time = %.1f" \
           % (epoch, train_ADE, train_FDE, toc - tic))
 
@@ -565,7 +601,7 @@ def test(n_gen_samples=20, linear=False, write_to_file=None, just_one=False):
     plt.close()
     ade_avg_12, fde_avg_12 = 0, 0
     ade_min_12, fde_min_12 = 0, 0
-    for ii, batch_i in enumerate(test_batches):        
+    for ii, batch_i in enumerate(test_batches):
         obsv = dataset_obsv[batch_i[0]:batch_i[1]]
         pred = dataset_pred[batch_i[0]:batch_i[1]]
         current_t = dataset_t[batch_i[0]]
@@ -589,7 +625,8 @@ def test(n_gen_samples=20, linear=False, write_to_file=None, just_one=False):
 
             all_20_errors = torch.cat(all_20_errors)
             if write_to_file:
-                file_name = os.path.join(write_to_file, str(epoch) + '-' + str(current_t) + '.npz')
+                # file_name = os.path.join(write_to_file, str(epoch) + '-' + str(current_t) + '.npz')
+                file_name = os.path.join(write_to_file, str(ii) + '-' + str(current_t) + '.npz')
                 print('saving to ', file_name)
                 np_obsvs = scale.denormalize(obsv[:, :, :2].data.cpu().numpy())
                 np_preds_our = scale.denormalize(torch.cat(all_20_preds)[:, :, :, :2].data.cpu().numpy())
@@ -637,32 +674,34 @@ else:
     start_epoch = 1
 
 # FIXME: comment here to train
-# wr_dir = '../preds-iccv/' + dataset_name + '/' + model_name + '/' + str(0000)
-# os.makedirs(wr_dir, exist_ok=True)
-# test(n_gen_samples=128, write_to_file=wr_dir)
-# exit(1)
+# wr_dir = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/preds-iccv/' + dataset_name + '/' + model_name + '/' + str(0000)
+wr_dir = 'preds-iccv/' + dataset_name + '/' + model_name + '/' + str(0000)
+os.makedirs(wr_dir, exist_ok=True)
+test(n_gen_samples=128, write_to_file=wr_dir)
+exit(1)
 
 # ===================== TRAIN =========================
-for epoch in trange(start_epoch, n_epochs + 1):  # FIXME : set the number of epochs
-    # Main training function
-    train()
-
-    # ============== Save model on disk ===============
-    if epoch % 50 == 0:  # FIXME : set the interval for running tests
-        print('Saving model to file ...', model_file)
-        torch.save({
-            'epoch': epoch,
-            'attentioner_dict': attention.state_dict(),
-            'feature_embedder_dict': feature_embedder.state_dict(),
-            'encoder_dict': encoder.state_dict(),
-            'decoder_dict': decoder.state_dict(),
-            'pred_optimizer': predictor_optimizer.state_dict(),
-
-            'D_dict': D.state_dict(),
-            'D_optimizer': D_optimizer.state_dict()
-        }, model_file)
-
-    if epoch % 5 == 0:
-        wr_dir = '../medium/' + dataset_name + '/' + model_name + '/' + str(epoch)
-        os.makedirs(wr_dir, exist_ok=True)
-        test(128, write_to_file=wr_dir, just_one=True)
+# for epoch in trange(start_epoch, n_epochs + 1):  # FIXME : set the number of epochs
+#     # Main training function
+#     train()
+#
+#     # ============== Save model on disk ===============
+#     if epoch % 50 == 0:  # FIXME : set the interval for running tests
+#         print('Saving model to file ...', model_file)
+#         torch.save({
+#             'epoch': epoch,
+#             'attentioner_dict': attention.state_dict(),
+#             'feature_embedder_dict': feature_embedder.state_dict(),
+#             'encoder_dict': encoder.state_dict(),
+#             'decoder_dict': decoder.state_dict(),
+#             'pred_optimizer': predictor_optimizer.state_dict(),
+#
+#             'D_dict': D.state_dict(),
+#             'D_optimizer': D_optimizer.state_dict()
+#         }, model_file)
+#
+#     if epoch % 500 == 0:
+#         wr_dir = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/medium/' + dataset_name + '/' + model_name + '/' + str(epoch)
+#         os.makedirs(wr_dir, exist_ok=True)
+#         test(128, write_to_file=wr_dir, just_one=False)
+# wandb.finish()
