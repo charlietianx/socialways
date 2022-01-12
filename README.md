@@ -1,5 +1,7 @@
 # Social Ways
 
+[![Gradient](https://assets.paperspace.io/img/gradient-badge.svg)](https://console.paperspace.com/github/charlietianx/socialways/blob/colab_dev/train.py)
+
 The pytorch implementation for the paper
 
 **<a href="http://openaccess.thecvf.com/content_CVPRW_2019/papers/Precognition/Amirian_Social_Ways_Learning_Multi-Modal_Distributions_of_Pedestrian_Trajectories_With_GANs_CVPRW_2019_paper.pdf">Social Ways: Learning Multi-Modal Distributions of Pedestrian Trajectories with GANs</a>**  
