@@ -1,8 +1,10 @@
 # import wandb
-# from google.colab import drive
-#drive.mount('/content/drive')
-# import sys
-# sys.path.insert(0, '/content/drive/Othercomputers/My MacBook Pro/projs/socialways')
+import math
+
+from google.colab import drive
+drive.mount('/content/drive')
+import sys
+sys.path.insert(0, '/content/drive/Othercomputers/My MacBook Pro/projs/socialways')
 # %pwd
 
 import os
@@ -72,11 +74,11 @@ dataset_name = args.dataset
 model_name = args.model
 # input_file = '../hotel-8-12.npz'
 # input_file = 'traj-datasets/seq_eth/eth-8-12.npz'
-input_file = 'traj-datasets/data_zara01/zara01-8-12.npz'
-# input_file = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/traj-datasets/data_zara01/zara01-8-12.npz'
+# input_file = 'traj-datasets/data_zara01/zara01-8-12.npz'
+input_file = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/traj-datasets/data_zara01/zara01-8-12.npz'
 #model_file = '../trained_models/' + model_name + '-' + dataset_name + '.pt'
-# model_file = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/' + model_name + '-' + dataset_name + '.pt'
-model_file = 'models/' + model_name + '-' + dataset_name + '.pt'
+model_file = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/' + model_name + '-' + dataset_name + '.pt'
+# model_file = 'models/' + model_name + '-' + dataset_name + '.pt'
 
 # FIXME: ====== training hyper-parameters ======
 # Unrolled GAN
@@ -151,6 +153,7 @@ dataset_pred = torch.FloatTensor(dataset_pred).cuda()
 # Augment tensors of positions into positions+velocity
 def get_traj_4d(obsv_p, pred_p):
     obsv_v = obsv_p[:, 1:] - obsv_p[:, :-1]
+    # print('obsv_v=', obsv_v)
     obsv_v = torch.cat([obsv_v[:, 0].unsqueeze(1), obsv_v], dim=1)
     obsv_4d = torch.cat([obsv_p, obsv_v], dim=2)
     if len(pred_p) == 0: return obsv_4d
@@ -385,7 +388,7 @@ class DecoderLstm(nn.Module):
         out, self.lstm_h = self.lstm(inp.unsqueeze(1), self.lstm_h)
         # Applies the fully connected layer to the LSTM output
         out = self.fc(out.squeeze())
-        return outtraj-datasets
+        return out
 
 
 # LSTM-based path encoder
@@ -652,10 +655,6 @@ def test(n_gen_samples=20, linear=False, write_to_file=None, just_one=False):
     print('Avg ADE,FDE (12)= (%.3f, %.3f) | Min(20) ADE,FDE (12)= (%.3f, %.3f)' \
           % (ade_avg_12, fde_avg_12, ade_min_12, fde_min_12))
 
-
-# =======================================================
-# ===================== M A I N =========================
-# =======================================================
 if os.path.isfile(model_file):
     print('Loading model from ' + model_file)
     checkpoint = torch.load(model_file)
@@ -673,35 +672,78 @@ else:
     min_train_ADE = 10000
     start_epoch = 1
 
-# FIXME: comment here to train
-# wr_dir = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/preds-iccv/' + dataset_name + '/' + model_name + '/' + str(0000)
-wr_dir = 'preds-iccv/' + dataset_name + '/' + model_name + '/' + str(0000)
-os.makedirs(wr_dir, exist_ok=True)
-test(n_gen_samples=128, write_to_file=wr_dir)
-exit(1)
 
-# ===================== TRAIN =========================
-# for epoch in trange(start_epoch, n_epochs + 1):  # FIXME : set the number of epochs
-#     # Main training function
-#     train()
-#
-#     # ============== Save model on disk ===============
-#     if epoch % 50 == 0:  # FIXME : set the interval for running tests
-#         print('Saving model to file ...', model_file)
-#         torch.save({
-#             'epoch': epoch,
-#             'attentioner_dict': attention.state_dict(),
-#             'feature_embedder_dict': feature_embedder.state_dict(),
-#             'encoder_dict': encoder.state_dict(),
-#             'decoder_dict': decoder.state_dict(),
-#             'pred_optimizer': predictor_optimizer.state_dict(),
-#
-#             'D_dict': D.state_dict(),
-#             'D_optimizer': D_optimizer.state_dict()
-#         }, model_file)
-#
-#     if epoch % 500 == 0:
-#         wr_dir = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/medium/' + dataset_name + '/' + model_name + '/' + str(epoch)
-#         os.makedirs(wr_dir, exist_ok=True)
-#         test(128, write_to_file=wr_dir, just_one=False)
-# wandb.finish()
+# =======================================================
+# ===================== M A I N =========================
+# =======================================================
+def code_infer(n_gen_samples=20, linear=False, write_to_file=None, just_one=False):
+    plt.close()
+    a,b = test_batches.shape
+    samples_idces = np.random.choice(a, 1)
+    samples = test_batches[samples_idces, :]
+
+    code_traverse(0, 1, 2, write_to_file, samples)
+    code_traverse(1, 2, 0, write_to_file, samples)
+    code_traverse(2, 0, 1, write_to_file, samples)
+
+
+def code_traverse(fix_code1_idx, fix_code2_idx, vary_code_idx, write_to_file, samples):
+    fix_code1_agent = 0
+    fix_code2_agent = 0
+
+    while fix_code1_agent < 10 and fix_code2_agent < 10:
+        name_arr = []
+        name_arr[fix_code1_idx] = str(fix_code1_agent)
+        name_arr[fix_code2_idx] = str(fix_code2_agent)
+        name_arr[vary_code_idx] = '00'
+
+        img_path = write_to_file + "/" + "_".join(name_arr)
+        fig, axe = plt.subplots(10, 5, sharex=False, sharey=False, figsize=(10, 10))
+        for jj, batch_j in enumerate(samples):
+            obsv = dataset_obsv[batch_j[0]:batch_j[1]];
+            pred = dataset_pred[batch_j[0]:batch_j[1]];
+            bs = int(batch_j[1] - batch_j[0])
+            with torch.no_grad():
+                # cannot use float in a loop
+                vary_code_agent = 0
+                while code1_agent < 10:
+                    noise = torch.FloatTensor(torch.rand(bs, noise_len)).cuda()
+                    for b_idx in range(bs):
+                        noise[b_idx][vary_code_idx] = vary_code_agent / 10
+                        noise[b_idx][fix_code1_idx] = fix_code1_agent / 10
+                        noise[b_idx][fix_code2_idx] = fix_code2_agent / 10
+                    pred_hat_4d = predict(obsv, noise, n_next)
+                    obsv_dn = scale.denormalize(obsv[0].data.cpu().numpy())
+                    pred_dn = scale.denormalize(pred[0].data.cpu().numpy())
+                    pred_hat_2d_dn = scale.denormalize(pred_hat_4d[0][:][:].data.cpu().numpy())
+
+                    print('obsv before=', obsv[0], ', grd before=', pred[0], ', pred_hat before',
+                          pred_hat_4d[0][:][:, [0, 2]])
+                    print('obsv=', obsv_dn, 'grd=', pred_dn, 'pred=', pred_hat_2d_dn[:1, :, :2])
+
+                    x_obsv, y_obsv = zip(*obsv_dn)
+                    x_pred, y_pred = zip(*pred_dn)
+                    x_pred_hat, y_pred_hat = zip(*pred_hat_2d_dn[:1, :, :2])
+                    fig_idx = code1_agent
+                    current_axe = axe[fig_idx, jj]
+                    current_axe.scatter(x_obsv, y_obsv, c='black', s=0.2)
+                    current_axe.scatter(x_pred, y_pred, c='green', s=0.2)
+                    current_axe.scatter(x_pred_hat, y_pred_hat, c='red', s=0.2)
+                    current_axe.set(ylabel='code1=' + str(code1_agent / 10) + '')
+                    code1_agent = code1_agent + 1
+            for i1 in range(10):
+                for j1 in range(5):
+                    current_axe = axe[9, j1]
+                    current_axe.set(xlabel='sample=' + str(j1 + 1) + '')
+            img_name = img_path + '.png'
+            plt.savefig(img_name)
+        fix_code1_agent += 2
+        fix_code2_agent += 2
+
+# # FIXME: comment here to train
+wr_dir = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/preds-iccv/' + dataset_name + '/' + model_name + '/' + str(0000)
+# wr_dir = './preds-iccv/' + dataset_name + '/' + model_name + '/' + str(0000)
+os.makedirs(wr_dir, exist_ok=True)
+# test(n_gen_samples=128, write_to_file=wr_dir)
+code_infer(n_gen_samples=128, write_to_file=wr_dir)
+exit(1)
