@@ -1,26 +1,26 @@
-# import numpy as np
-# import matplotlib.pyplot as plt
-#
-# fig,axe = plt.subplots(10, 5, sharex=True, sharey=True, figsize=(6,6))
-# # fig.tight_layout(h_pad=1)
-# for i in range(10):
-#     for j in range(5):
-#         obsv1 = np.random.rand(12,2)
-#         pred1 = np.random.rand(8,2)
-#         pred_hat1 = np.random.rand(8, 2)
-#
-#         x, y = zip(*obsv1)
-#         x1, y1 = zip(*pred1)
-#         x2, y2 = zip(*pred_hat1)
-#         current_axis = axe[i, j]
-#         current_axis.scatter(x, y, c='black', s=0.2)
-#         current_axis.scatter(x1, y1, c='green', s=0.2)
-#         current_axis.scatter(x2, y2, c='red', s=0.2)
-#
-# for j in range(5):
-#     axe[9, j].set(xlabel='code=' + str(j))
-# # plt.savefig('traj.png')
-# plt.show()
+import numpy as np
+import matplotlib.pyplot as plt
+
+fig,axe = plt.subplots(10, 5, sharex=True, sharey=True, figsize=(6,6))
+# fig.tight_layout(h_pad=1)
+for i in range(10):
+    for j in range(5):
+        obsv1 = np.random.rand(12,2)
+        pred1 = np.random.rand(8,2)
+        pred_hat1 = np.random.rand(8, 2)
+
+        x, y = zip(*obsv1)
+        x1, y1 = zip(*pred1)
+        x2, y2 = zip(*pred_hat1)
+        current_axis = axe[i, j]
+        current_axis.scatter(x, y, c='black', s=0.2)
+        current_axis.scatter(x1, y1, c='green', s=0.2)
+        current_axis.scatter(x2, y2, c='red', s=0.2)
+
+for j in range(5):
+    axe[9, j].set(xlabel='code=' + str(j))
+# plt.savefig('traj.png')
+plt.show()
 # import math
 #
 #
@@ -76,11 +76,3 @@
 #
 # for i in range(0, 10, 1):
 #     print(i/10)
-
-l = [0, 0]
-l[0] = 1
-l[1] = 2
-print('_'.join(list(map(lambda x: str(x), l))))
-l[1] = 2
-l[0] = 1
-print('_'.join(list(map(lambda x: str(x), l))))

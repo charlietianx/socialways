@@ -24,6 +24,11 @@ from utils.parse_utils import Scale
 from torch.utils.data import DataLoader
 from utils.linear_models import predict_cv
 
+# os.environ["CUDA_VISIBLE_DEVICES"] = "5"
+
+
+# torch.cuda.set_device(3)
+
 # wandb.init(project='socialways')
 # config = wandb.config
 # config.batch_size = 256
@@ -76,9 +81,9 @@ model_name = args.model
 # input_file = 'traj-datasets/seq_eth/eth-8-12.npz'
 # input_file = 'traj-datasets/data_zara01/zara01-8-12.npz'
 input_file = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/traj-datasets/data_zara01/zara01-8-12.npz'
-#model_file = '../trained_models/' + model_name + '-' + dataset_name + '.pt'
+# model_file = '../trained_models/' + model_name + '-' + dataset_name + '.pt'
 model_file = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/' + model_name + '-' + dataset_name + '.pt'
-# model_file = 'models/' + model_name + '-' + dataset_name + '.pt'
+# model_file = './' + model_name + '-' + dataset_name + '.pt'
 
 # FIXME: ====== training hyper-parameters ======
 # Unrolled GAN
@@ -676,10 +681,11 @@ else:
 # =======================================================
 # ===================== M A I N =========================
 # =======================================================
+code_infer_samples_num = 2
 def code_infer(n_gen_samples=20, linear=False, write_to_file=None, just_one=False):
     plt.close()
-    a,b = test_batches.shape
-    samples_idces = np.random.choice(a, 1)
+    a, b = test_batches.shape
+    samples_idces = np.random.choice(a, code_infer_samples_num)
     samples = test_batches[samples_idces, :]
 
     code_traverse(0, 1, 2, write_to_file, samples)
@@ -692,21 +698,21 @@ def code_traverse(fix_code1_idx, fix_code2_idx, vary_code_idx, write_to_file, sa
     fix_code2_agent = 0
 
     while fix_code1_agent < 10 and fix_code2_agent < 10:
-        name_arr = []
+        name_arr = [0, 0, 0]
         name_arr[fix_code1_idx] = str(fix_code1_agent)
         name_arr[fix_code2_idx] = str(fix_code2_agent)
         name_arr[vary_code_idx] = '00'
 
         img_path = write_to_file + "/" + "_".join(name_arr)
-        fig, axe = plt.subplots(10, 5, sharex=False, sharey=False, figsize=(10, 10))
+        fig, axe = plt.subplots(10, code_infer_samples_num, sharex=True, sharey=False, figsize=(10, 10))
         for jj, batch_j in enumerate(samples):
-            obsv = dataset_obsv[batch_j[0]:batch_j[1]];
-            pred = dataset_pred[batch_j[0]:batch_j[1]];
+            obsv = dataset_obsv[batch_j[0]:batch_j[1]]
+            pred = dataset_pred[batch_j[0]:batch_j[1]]
             bs = int(batch_j[1] - batch_j[0])
             with torch.no_grad():
                 # cannot use float in a loop
                 vary_code_agent = 0
-                while code1_agent < 10:
+                while vary_code_agent < 10:
                     noise = torch.FloatTensor(torch.rand(bs, noise_len)).cuda()
                     for b_idx in range(bs):
                         noise[b_idx][vary_code_idx] = vary_code_agent / 10
@@ -717,24 +723,26 @@ def code_traverse(fix_code1_idx, fix_code2_idx, vary_code_idx, write_to_file, sa
                     pred_dn = scale.denormalize(pred[0].data.cpu().numpy())
                     pred_hat_2d_dn = scale.denormalize(pred_hat_4d[0][:][:].data.cpu().numpy())
 
-                    print('obsv before=', obsv[0], ', grd before=', pred[0], ', pred_hat before',
-                          pred_hat_4d[0][:][:, [0, 2]])
-                    print('obsv=', obsv_dn, 'grd=', pred_dn, 'pred=', pred_hat_2d_dn[:1, :, :2])
+                    # print('obsv before=', obsv[0], ', grd before=', pred[0], ', pred_hat before',
+                    #       pred_hat_4d[0][:][:, [0, 2]])
+                    # print('pred_hat_2d_dn=', pred_hat_2d_dn)
+                    # print('obsv=', obsv_dn, 'grd=', pred_dn, 'pred=', pred_hat_2d_dn[:, :2])
 
                     x_obsv, y_obsv = zip(*obsv_dn)
                     x_pred, y_pred = zip(*pred_dn)
-                    x_pred_hat, y_pred_hat = zip(*pred_hat_2d_dn[:1, :, :2])
-                    fig_idx = code1_agent
+                    x_pred_hat, y_pred_hat = zip(*pred_hat_2d_dn[:, :2])
+                    fig_idx = vary_code_agent
                     current_axe = axe[fig_idx, jj]
+                    # print("axe coor=(", fig_idx, ',', jj , ')')
                     current_axe.scatter(x_obsv, y_obsv, c='black', s=0.2)
                     current_axe.scatter(x_pred, y_pred, c='green', s=0.2)
                     current_axe.scatter(x_pred_hat, y_pred_hat, c='red', s=0.2)
-                    current_axe.set(ylabel='code1=' + str(code1_agent / 10) + '')
-                    code1_agent = code1_agent + 1
+                    current_axe.set(ylabel='code=' + str(vary_code_agent / 10) + '')
+                    vary_code_agent = vary_code_agent + 1
             for i1 in range(10):
-                for j1 in range(5):
-                    current_axe = axe[9, j1]
-                    current_axe.set(xlabel='sample=' + str(j1 + 1) + '')
+                for j1 in range(code_infer_samples_num):
+                    axe1 = axe[9, j1]
+                    axe1.set(xlabel='sample=' + str(j1 + 1) + '')
             img_name = img_path + '.png'
             plt.savefig(img_name)
         fix_code1_agent += 2
