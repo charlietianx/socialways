@@ -14,7 +14,6 @@ import torch
 import numpy as np
 import torch.nn as nn
 import torch.optim as opt
-
 from tqdm import tqdm, trange
 from itertools import chain
 from torch.autograd import Variable
@@ -81,8 +80,8 @@ model_file = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/' + 
 n_unrolling_steps = args.unrolling_steps
 # Info GAN
 use_info_loss = True
-loss_info_w = 0.5
-n_latent_codes = 3
+loss_info_w = 1
+n_latent_codes = 2
 # L2 GAN
 use_l2_loss = False
 use_variety_loss = False
@@ -460,7 +459,9 @@ def train():
     tic = time.clock()
     # Evaluation metrics (ADE/FDE)
     train_ADE, train_FDE = 0, 0
-    batch_size_accum = 0;
+    avg_G_INFO_LOSS = 0
+    avg_D_INFO_LOSS = 0
+    batch_size_accum = 0
     sub_batches = []
     # For all the training batches
     for ii, batch_i in enumerate(train_batches):
@@ -505,6 +506,7 @@ def train():
                 # Evaluate the MSE loss: the fake_labels should be close to zero
                 d_loss_fake = mse_loss(fake_labels, zeros)
                 d_loss_info = mse_loss(code_hat.squeeze(), noise[:, :n_latent_codes])
+                avg_D_INFO_LOSS += d_loss_info * loss_info_w
                 # Evaluate the MSE loss: the real should be close to one
                 real_labels, code_hat = D(obsv_4d, pred_4d)  # classify real samples
                 d_loss_real = mse_loss(real_labels, ones)
@@ -536,7 +538,7 @@ def train():
             g_loss_fooling = mse_loss(gen_labels, ones)
             # Information loss
             g_loss_info = mse_loss(code_hat.squeeze(), noise[:, :n_latent_codes])
-
+            avg_G_INFO_LOSS += loss_info_w * g_loss_info
             #  FIXME: which loss functions to use for G?
             #
             g_loss = g_loss_fooling
@@ -557,11 +559,6 @@ def train():
                 variety_loss, _ = torch.min(all_20_losses, dim=0)
                 g_loss += loss_l2_w * variety_loss
 
-            wandb.log({
-                "g_loss":g_loss,
-                "info_loss":g_loss_info,
-                "d_loss": d_loss
-            })
             g_loss.backward()
             predictor_optimizer.step()
 
@@ -580,17 +577,25 @@ def train():
             batch_size_accum = 0;
             sub_batches = []
 
+    # print('train, cnt=', cnt, ', g_info_cnt=', g_info_cnt, ', d_info_cnt=', d_info_cnt)
     train_ADE /= n_train_samples
     train_FDE /= n_train_samples
+    avg_G_INFO_LOSS /= n_train_samples
+    avg_D_INFO_LOSS /= n_train_samples
     toc = time.clock()
     # print("codes= ", code_hat)
     wandb.log({
-        "epoch":epoch,
         "ADE": train_ADE,
         "FDE": train_FDE,
+        "avg_G_INFO_LOSS": avg_G_INFO_LOSS,
+        "avg_D_INFO_LOSS": avg_D_INFO_LOSS,
+        "g_loss": g_loss,
+        "d_loss": d_loss,
+        "g_info_loss": loss_info_w * g_loss_info,
+        "d_info_loss": loss_info_w * d_loss_info
     })
-    print(" Epc=%4d, Train ADE,FDE = (%.3f, %.3f) | time = %.1f" \
-          % (epoch, train_ADE, train_FDE, toc - tic))
+    print(" Epc=%4d, Train ADE,FDE = (%.3f, %.3f), avg_G_INFO_LOSS, avg_D_INFO_LOSS=(%.3f, %.3f) | time = %.1f" \
+          % (epoch, train_ADE, train_FDE, avg_G_INFO_LOSS, avg_D_INFO_LOSS, toc - tic))
 
 
 def test(n_gen_samples=20, linear=False, write_to_file=None, just_one=True):
