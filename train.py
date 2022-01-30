@@ -1,9 +1,18 @@
-
-from google.colab import drive
-#drive.mount('/content/drive')
 import sys
-sys.path.insert(0, '/content/drive/Othercomputers/My MacBook Pro/projs/socialways')
-%pwd
+
+#colab
+# from google.colab import drive
+# drive.mount('/content/drive')
+# sys.path.insert(0, '/content/drive/Othercomputers/My MacBook Pro/projs/socialways')
+
+#kaggle
+#run on Kaggle
+import sys
+package_paths = [
+    '/kaggle/working/socialways/utils/*','/kaggle/working/socialways/*'
+]
+for pth in package_paths:
+    sys.path.append(pth)
 
 import os
 import time
@@ -17,9 +26,13 @@ import torch.optim as opt
 from tqdm import tqdm, trange
 from itertools import chain
 from torch.autograd import Variable
-from utils.parse_utils import Scale
 from torch.utils.data import DataLoader
-from utils.linear_models import predict_cv
+#colab
+# from utils.parse_utils import Scale
+# from utils.linear_models import predict_cv
+#kaggle
+from socialways.utils.parse_utils import Scale
+from socialways.utils.linear_models import predict_cv
 
 wandb.init(project='socialways-test')
 config = wandb.config
@@ -71,9 +84,13 @@ dataset_name = args.dataset
 model_name = args.model
 # input_file = '../hotel-8-12.npz'
 #input_file = 'traj-datasets/seq_eth/eth-8-12.npz'
-input_file = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/traj-datasets/data_zara02/zara02-8-12.npz'
 #model_file = '../trained_models/' + model_name + '-' + dataset_name + '.pt'
-model_file = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/' + model_name + '-' + dataset_name + '.pt'
+# colab
+# input_file = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/traj-datasets/data_zara02/zara02-8-12.npz'
+# model_file = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/' + model_name + '-' + dataset_name + '.pt'
+# kaggle
+input_file = '/kaggle/working/socialways/traj-datasets/data_zara02/zara02-8-12.npz'
+model_file = '/kaggle/working/socialways/' + model_name + '-' + dataset_name + '.pt'
 
 # FIXME: ====== training hyper-parameters ======
 # Unrolled GAN
@@ -702,7 +719,10 @@ for epoch in trange(start_epoch, n_epochs + 1):  # FIXME : set the number of epo
         }, model_file)
 
     if epoch % 1000 == 0:
-        wr_dir = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/medium/' + dataset_name + '/' + model_name + '/' + str(epoch)
+        # colab
+        # wr_dir = '/content/drive/Othercomputers/My MacBook Pro/projs/socialways/medium/' + dataset_name + '/' + model_name + '/' + str(epoch)
+        # kaggle
+        wr_dir = '/kaggle/working/socialways/medium/' + dataset_name + '/' + model_name + '/' + str(epoch)
         os.makedirs(wr_dir, exist_ok=True)
         test(128, write_to_file=False, just_one=False)
 wandb.finish()
